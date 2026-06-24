@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>RULETA NPS</title>
+
+<style>
+/* CENTRADO ABSOLUTO */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: radial-gradient(circle,#1b2735,#090a0f);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden; /* Evita barras de scroll molestas durante la lluvia de confeti */
+  cursor: pointer;
+  transition: background 0.5s ease;
+}
+
+/* NUEVO: Animación de flashes de fiesta para el fondo cuando hay ganador */
+body.fiesta-fondo {
+  animation: lucesDiscoteca 1s ease-in-out infinite alternate;
+}
+
+@keyframes lucesDiscoteca {
+  from { background: radial-gradient(circle, #1a3a4a, #090a0f); }
+  to { background: radial-gradient(circle, #2a203a, #050508); }
+}
+
+/* CANVAS DE CONFETI EN CAPA SUPERIOR (OCUPA TODA LA PANTALLA) */
+#confetti-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 80;
+}
+
+/* TITULO GRANDE */
+h1 {
+  font-size: 55px;
+  margin: 10px 0 25px 0;
+  text-shadow: 0 0 20px rgba(0, 201, 167, 0.6);
+  letter-spacing: 2px;
+  user-select: none;
+}
+
+/* BOTONES GENERALES */
+button {
+  padding: 14px 22px;
+  border-radius: 10px;
+  border: none;
+  background: #00c9a7;
+  color: white;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  transition: background 0.2s, transform 0.1s;
+}
+button:hover {
+  background: #00b395;
+  transform: scale(1.05);
+}
+
+/* BOTON CONFIG (ESQUINA) */
+#btnConfig {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  font-size: 18px;
+  background: #4a5568;
+  z-index: 50;
+}
+#btnConfig:hover {
+  background: #2d3748;
+}
+
+/* BOTON FULLSCREEN */
+#btnFull {
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  font-size: 18px;
+  background: #4a5568;
+  z-index: 50;
+}
+#btnFull:hover {
+  background: #2d3748;
+}
+
+/* CONTENEDOR DE LA RULETA AGRANDADO */
+#ruleta-box {
+  position: relative;
+  width: 650px;
+  height: 650px;
+  margin: 10px auto;
+}
+
+/* FLECHA SUPERIOR */
+#flecha {
+  position: absolute;
+  top: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 22px solid transparent;
+  border-right: 22px solid transparent;
+  border-top: 45px solid #ff3333;
+  z-index: 30;
+  filter: drop-shadow(0px 5px 8px rgba(0,0,0,0.6));
+}
+
+/* CANVAS RULETA */
+#canvas {
+  width: 650px;
+  height: 650px;
+  border-radius: 50%;
+  box-shadow: 0 0 50px rgba(0,0,0,0.95);
+  display: block;
+}
+
+/* RESULTADO GIGANTE AL CENTRO CON ANIMACIÓN DE PULSO EXTREMO */
+#resultado {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1);
+  background: rgba(0, 0, 0, 0.95);
+  color: #fff;
+  padding: 25px 50px;
+  border-radius: 60px;
+  font-size: 42px;
+  font-weight: bold;
+  white-space: nowrap;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 0 45px rgba(0, 201, 167, 0.9), inset 0 0 20px rgba(255,255,255,0.4);
+  border: 4px solid #00c9a7;
+  z-index: 90;
+  pointer-events: none;
+  display: none;
+}
+
+/* Nueva clase animada de victoria */
+.ganador-animado {
+  animation: pulsoGanador 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) infinite alternate;
+}
+
+@keyframes pulsoGanador {
+  from { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 35px rgba(0, 201, 167, 0.8); border-color: #00c9a7; }
+  to { transform: translate(-50%, -50%) scale(1.12); box-shadow: 0 0 65px rgba(237, 137, 54, 1); border-color: #ed8936; }
+}
+
+/* MODAL CONFIGURACIÓN */
+#modal {
+  display:none;
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:rgba(0,0,0,0.85);
+  justify-content:center;
+  align-items:center;
+  z-index:100;
+  cursor: default;
+}
+
+.modal-box {
+  background:#1a202c;
+  color:white;
+  padding:25px;
+  border-radius:20px;
+  width:550px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  border: 1px solid #2d3748;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-box h3 {
+  margin-top: 0;
+  font-size: 24px;
+  border-bottom: 2px solid #2d3748;
+  padding-bottom: 10px;
+}
+
+.area-lista-masiva {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+.area-lista-masiva textarea {
+  width: 100%;
+  height: 100px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #4a5568;
+  background: #2d3748;
+  color: white;
+  font-size: 14px;
+  resize: none;
+  box-sizing: border-box;
+}
+.btn-procesar {
+  background: #3182ce;
+  padding: 10px;
+  font-size: 16px;
+}
+.btn-procesar:hover {
+  background: #2b6cb0;
+}
+
+.acciones-lista {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  gap: 10px;
+}
+.btn-mezclar { background: #ed8936; flex: 1; }
+.btn-mezclar:hover { background: #dd6b20; }
+.btn-cerrar { background: #e53e3e; flex: 1; }
+.btn-cerrar:hover { background: #c53030; }
+
+#lista {
+  overflow-y: auto;
+  flex: 1;
+  margin-bottom: 10px;
+  padding-right: 5px;
+}
+
+.item {
+  background: #2d3748;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.item-info { flex: 1; text-align: left; }
+.item-nombre {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 4px;
+  font-size: 15px;
+  color: #e2e8f0;
+}
+
+.item-control { display: flex; align-items: center; gap: 8px; }
+.item-control input[type="range"] {
+  width: 120px;
+  accent-color: #00c9a7;
+  cursor: pointer;
+}
+.item-control span {
+  font-size: 13px;
+  font-weight: bold;
+  width: 40px;
+  text-align: right;
+  color: #a0aec0;
+}
+
+.btn-eliminar { background: none; padding: 5px; font-size: 16px; }
+.btn-eliminar:hover { background: rgba(255,0,0,0.2); }
+
+#lista::-webkit-scrollbar { width: 6px; }
+#lista::-webkit-scrollbar-track { background: #1a202c; }
+#lista::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 3px; }
+</style>
+</head>
+
+<body>
+
+<canvas id="confetti-canvas"></canvas>
+
+<h1>🎰 RULETA DE SUERTE</h1>
+
+<button id="btnFull" onclick="pantallaCompleta(event)">🔳 Pantalla</button>
+
+
+<button id="btnConfig" onclick="pedirClave(event)">⚙️ Config</button>
+
+<div id="ruleta-box">
+  <div id="flecha"></div>
+  <canvas id="canvas" width="650" height="650"></canvas>
+  <div id="resultado"></div>
+</div>
+
+<div id="modal">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h3>⚙️ Configuración</h3>
+
+    <div class="area-lista-masiva">
+      <textarea id="txtListaMasiva" placeholder="Pega o escribe tus nombres aquí (uno por línea)...&#10;Ejemplo:&#10;Juan Perez&#10;Maria Lopez&#10;Carlos Gomez"></textarea>
+      <button class="btn-procesar" onclick="procesarListaMasiva()">⚡ Cargar Lista de Nombres</button>
+    </div>
+
+    <div class="acciones-lista">
+      <button class="btn-mezclar" onclick="mezclar()">🔀 Mezclar Orden</button>
+      <button class="btn-cerrar" onclick="cerrarModal()">Guardar y Cerrar</button>
+    </div>
+
+    <div id="lista"></div>
+  </div>
+</div>
+
+<script>
+let participantes = [];
+let girando = false;
+let anguloActual = 0;
+
+// Sistema de Audio integrado (Volumen al 100%)
+let audioCtx = null;
+let motorOsc = null;  
+let motorGain = null; 
+
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
+
+function iniciarSonidoGiro() {
+  initAudio();
+  motorOsc = audioCtx.createOscillator();
+  motorGain = audioCtx.createGain();
+  
+  motorOsc.type = 'square'; 
+  motorOsc.frequency.setValueAtTime(55, audioCtx.currentTime); 
+  
+  motorGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+  motorGain.gain.linearRampToValueAtTime(1.0, audioCtx.currentTime + 0.2); 
+  
+  let filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(180, audioCtx.currentTime); 
+
+  motorOsc.connect(filter);
+  filter.connect(motorGain);
+  motorGain.connect(audioCtx.destination);
+  
+  motorOsc.start();
+}
+
+function ajustarFrecuenciaGiro(progreso) {
+  if (!motorOsc) return;
+  let nuevaFreq = 55 - (progreso * 35);
+  motorOsc.frequency.setValueAtTime(nuevaFreq, audioCtx.currentTime);
+}
+
+function detenerSonidoGiro() {
+  if (motorOsc && motorGain) {
+    motorGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    motorGain.gain.setValueAtTime(motorGain.gain.value, audioCtx.currentTime);
+    motorGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1); 
+    setTimeout(() => {
+      try { motorOsc.stop(); } catch(e){}
+      motorOsc = null;
+      motorGain = null;
+    }, 100);
+  }
+}
+
+function reproducirTic() {
+  initAudio();
+  let osc = audioCtx.createOscillator();
+  let gain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(180, audioCtx.currentTime); 
+  
+  gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+  
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.06);
+}
+
+function reproducirVictoria() {
+  initAudio();
+  let notas = [261.63, 329.63, 392.00, 523.25];
+  notas.forEach((freq, i) => {
+    let osc = audioCtx.createOscillator();
+    let gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
+    
+    gain.gain.setValueAtTime(1.0, audioCtx.currentTime + i * 0.1);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.4);
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime + i * 0.1);
+    osc.stop(audioCtx.currentTime + i * 0.1 + 0.4);
+  });
+}
+
+// SISTEMA DE CONFETI INDEPENDIENTE EN CANVAS
+const confettiCanvas = document.getElementById("confetti-canvas");
+const confettiCtx = confettiCanvas.getContext("2d");
+let confetis = [];
+let animacionConfetiID = null;
+
+function redimensionarConfeti() {
+  confettiCanvas.width = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+}
+window.addEventListener("resize", redimensionarConfeti);
+redimensionarConfeti();
+
+function crearConfeti() {
+  confetis = [];
+  let cantidad = 180; // Total de partículas cayendo concurrentemente
+  for (let i = 0; i < cantidad; i++) {
+    confetis.push({
+      x: Math.random() * confettiCanvas.width,
+      y: Math.random() * -confettiCanvas.height - 20, 
+      r: Math.random() * 6 + 5,
+      d: Math.random() * confettiCanvas.height,
+      color: `hsl(${Math.random() * 360}, 100%, 55%)`,
+      tilt: Math.random() * 10 - 5,
+      tiltAngleIncremental: Math.random() * 0.06 + 0.03,
+      tiltAngle: 0
+    });
+  }
+}
+
+function lanzarAnimacionConfeti() {
+  crearConfeti();
+  if (animacionConfetiID) cancelAnimationFrame(animacionConfetiID);
+  
+  function actualizar() {
+    confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    
+    let activos = 0;
+    confetis.forEach((p) => {
+      p.tiltAngle += p.tiltAngleIncremental;
+      p.y += (Math.cos(p.d) + 3 + p.r / 2) / 1.8; // Control de velocidad física de caída
+      p.x += Math.sin(p.tiltAngle);
+      p.tilt = Math.sin(p.tiltAngle - activos / 3) * 15;
+
+      if (p.y <= confettiCanvas.height) activos++;
+
+      confettiCtx.beginPath();
+      confettiCtx.lineWidth = p.r;
+      confettiCtx.strokeStyle = p.color;
+      confettiCtx.moveTo(p.x + p.tilt + p.r / 2, p.y);
+      confettiCtx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 2);
+      confettiCtx.stroke();
+    });
+
+    // Sigue animando si el juego no ha vuelto a arrancar un nuevo giro
+    if (activos > 0 && girando === false) {
+      animacionConfetiID = requestAnimationFrame(actualizar);
+    } else {
+      confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    }
+  }
+  actualizar();
+}
+
+function pedirClave(e){
+  if(e) e.stopPropagation(); 
+  let clave = prompt("Ingrese clave:");
+  if(clave === "1234"){ 
+    abrirModal();
+  } else {
+    alert("Acceso denegado");
+  }
+}
+
+function pantallaCompleta(e){
+  if(e) e.stopPropagation();
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen().then(redimensionarConfeti);
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+function abrirModal(){
+  modal.style.display="flex";
+  actualizarLista();
+}
+function cerrarModal(){
+  modal.style.display="none";
+}
+
+function procesarListaMasiva() {
+  let texto = txtListaMasiva.value.trim();
+  if (!texto) return;
+
+  let lineas = texto.split('\n');
+  lineas.forEach(linea => {
+    let nombre = linea.trim();
+    if (nombre) {
+      participantes.push({nombre: nombre, peso: 50});
+    }
+  });
+
+  txtListaMasiva.value = ""; 
+  actualizarLista();         
+  dibujar();                 
+}
+
+function eliminar(i){
+  participantes.splice(i,1);
+  actualizarLista();
+  dibujar();
+}
+
+function cambiarProb(i,v){
+  participantes[i].peso=parseInt(v);
+  document.getElementById(`txt-peso-${i}`).innerText = v + "%";
+}
+
+function mezclar() {
+  if (participantes.length < 2) return;
+  for (let i = participantes.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [participantes[i], participantes[j]] = [participantes[j], participantes[i]];
+  }
+  actualizarLista();
+  dibujar();
+}
+
+function actualizarLista(){
+  lista.innerHTML = participantes.map((p,i)=>`
+    <div class="item">
+      <div class="item-info">
+        <span class="item-nombre">${p.nombre.toUpperCase()}</span>
+      </div>
+      <div class="item-control">
+        <input type="range" min="0" max="100" value="${p.peso}"
+          oninput="cambiarProb(${i}, this.value)" onchange="dibujar()">
+        <span id="txt-peso-${i}">${p.peso}%</span>
+        <button class="btn-eliminar" onclick="eliminar(${i})">❌</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function dibujar(){
+  let ctx = canvas.getContext("2d");
+  ctx.clearRect(0,0,650,650);
+
+  let total = participantes.length;
+  if(total===0) return;
+
+  let anguloInicio=0;
+
+  participantes.forEach((p,i)=>{
+    let angulo=(1/total)*2*Math.PI;
+
+    ctx.beginPath();
+    ctx.moveTo(325,325);
+    ctx.arc(325,325,325,anguloInicio,anguloInicio+angulo);
+    ctx.fillStyle = `hsl(${i * (360 / total)}, 75%, 55%)`; 
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(325,325);
+    ctx.rotate(anguloInicio+angulo/2);
+    
+    ctx.fillStyle="#000";
+    ctx.font="bold 26px Arial"; 
+    ctx.textAlign = "center";   
+    ctx.textBaseline = "middle";
+
+    let nombreMayuscula = p.nombre.toUpperCase();
+    let palabras = nombreMayuscula.split(" ");
+    let lineaAltura = 30; 
+
+    palabras.forEach((palabra, index) => {
+      let desvioY = (index - (palabras.length - 1) / 2) * lineaAltura;
+      ctx.fillText(palabra, 175, desvioY); 
+    });
+
+    ctx.restore();
+
+    anguloInicio+=angulo;
+  });
+}
+
+function girar(){
+  if(girando || participantes.length===0 || modal.style.display === "flex") return;
+
+  let hayValidos = participantes.some(p=>p.peso>0);
+  if(!hayValidos){
+    resultado.style.display = "block";
+    resultado.innerText="⚠️ Sin opciones";
+    return;
+  }
+
+  // Limpiar estados de animaciones previas al empezar un nuevo tiro
+  confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  resultado.classList.remove("ganador-animado");
+  document.body.classList.remove("fiesta-fondo");
+
+  let sumaPesos = participantes.reduce((acc, p) => acc + p.peso, 0);
+  let random = Math.random() * sumaPesos;
+  let acumulado = 0;
+  let indexGanador = 0;
+
+  for (let i = 0; i < participantes.length; i++) {
+    acumulado += participantes[i].peso;
+    if (random <= acumulado) {
+      indexGanador = i;
+      break;
+    }
+  }
+
+  let ganador = participantes[indexGanador];
+  girando = true;
+
+  resultado.style.display = "block";
+  resultado.innerText = "🎡 ...";
+
+  let totalPartes = participantes.length;
+  let anguloPorParte = 360 / totalPartes;
+
+  let anguloCentroGanador = (indexGanador * anguloPorParte) + (anguloPorParte / 2);
+  let anguloDestinoCero = (360 - anguloCentroGanador + 270) % 360;
+
+  let vueltas = 5 * 360;
+  let fin = anguloActual + vueltas + (anguloDestinoCero - (anguloActual % 360));
+  if (fin < anguloActual + vueltas) fin += 360; 
+
+  let inicio = anguloActual;
+  let start = null;
+  
+  let ultimoAnguloSegmento = 0;
+
+  iniciarSonidoGiro();
+
+  function animar(t){
+    if(!start) start = t;
+
+    let progreso = (t - start) / 3500; 
+    if(progreso > 1) progreso = 1;
+
+    let ease = 1 - Math.pow(1 - progreso, 4); 
+
+    let angulo = inicio + (fin - inicio) * ease;
+    anguloActual = angulo % 360;
+
+    canvas.style.transform = `rotate(${angulo}deg)`;
+
+    ajustarFrecuenciaGiro(progreso);
+
+    let anguloRelativo = anguloActual;
+    let segmentoActual = Math.floor(anguloRelativo / anguloPorParte);
+    if (segmentoActual !== ultimoAnguloSegmento) {
+      reproducirTic();
+      ultimoAnguloSegmento = segmentoActual;
+    }
+
+    if(progreso < 1){
+      requestAnimationFrame(animar);
+    } else {
+      detenerSonidoGiro();
+      
+      // DISPARO DE EFECTOS DE GANADOR
+      resultado.innerText = "🏆 " + ganador.nombre.toUpperCase();
+      resultado.classList.add("ganador-animado"); // Agranda y parpadea el letrero
+      document.body.classList.add("fiesta-fondo"); // Cambia las luces del fondo exterior
+      lanzarAnimacionConfeti(); // Activa la lluvia masiva de confeti
+      
+      reproducirVictoria();
+      girando = false;
+    }
+  }
+
+  requestAnimationFrame(animar);
+}
+
+document.body.addEventListener("click", girar);
+document.addEventListener("keydown", girar);
+
+dibujar();
+</script>
+
+</body>
+</html>
